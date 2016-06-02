@@ -1,0 +1,20 @@
+name:          pretty-hex
+version:       1.0
+cabal-version: >= 1.6
+build-type:    Simple
+synopsis:      A library for hex dumps of ByteStrings
+description:   This library generates pretty hex dumps of ByteStrings in the
+               style of other common *nix hex dump tools.
+license:       BSD3
+license-file:  LICENSE
+maintainer:    Eric Mertens <emertens@galois.com>
+category:      Data
+
+library
+  build-depends:   base == 4.*, bytestring
+  exposed-modules: Hexdump
+
+source-repository head
+  type:     git
+  location: git://github.com/GaloisInc/hexdump.git
+
