@@ -9,6 +9,7 @@ license:       BSD3
 license-file:  LICENSE
 maintainer:    Eric Mertens <emertens@galois.com>
 category:      Data
+tested-with:   GHC==7.8.4, GHC==7.10.3, GHC==8.0.1
 
 library
   build-depends:   base == 4.*, bytestring
