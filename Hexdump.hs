@@ -1,4 +1,7 @@
-module Hexdump (prettyHex, simpleHex) where
+module Hexdump
+  ( prettyHexCfg, prettyHex, simpleHex
+  , Cfg(..), defaultCfg, wrapRange
+  ) where
 
 import Data.ByteString                       (ByteString)
 import qualified Data.ByteString       as B  (length, unpack)
@@ -9,6 +12,26 @@ import Numeric                               (showHex)
 
 byteWidth    = 2  -- Width of an padded 'Word8'
 numWordBytes = 4  -- Number of bytes to group into a 32-bit word
+
+
+data Cfg = Cfg
+  { startByte     :: Int
+  , transformByte :: Int -> String -> String
+  }
+
+defaultCfg :: Cfg
+defaultCfg = Cfg
+  { startByte     = 0
+  , transformByte = \_ x -> x
+  }
+
+wrapRange :: String -> String -> Int -> Int -> Int -> String -> String
+wrapRange start end x y = \z txt -> if x <= z && z <= y
+                                       then start ++ txt ++ end
+                                       else txt
+
+prettyHex :: ByteString -> String
+prettyHex = prettyHexCfg defaultCfg
 
 -- |'prettyHex' renders a 'ByteString' as a multi-line 'String' complete with
 -- addressing, hex digits, and ASCII representation.
@@ -23,12 +46,13 @@ numWordBytes = 4  -- Number of bytes to group into a 32-bit word
 --0040:   d1 c5 98 7e  d6 a1 98 e2  97 da 46 68  4e 60 11 15   ...~......FhN`..
 --0050:   d8 32 c6 0b  70 f5 2e 76  7f 8d f2 3b  ed de 90 c6   .2..p..v...;....
 --0060:   93 12 9c e1                                          ....@
-prettyHex :: ByteString -> String
-prettyHex bs = unlines (header : body)
+prettyHexCfg :: Cfg -> ByteString -> String
+prettyHexCfg cfg bs = unlines (header : body)
  where
   hexDisplayWidth = 50 -- Calculated width of the hex display panel
   numLineWords    = 4  -- Number of words to group onto a line
   addressWidth    = 4  -- Minimum width of a padded address
+
   numLineBytes    = numLineWords * numWordBytes -- Number of bytes on a line
   replacementChar = '.' -- 'Char' to use for non-printable characters
 
@@ -42,17 +66,25 @@ prettyHex bs = unlines (header : body)
     = padLast hexDisplayWidth
     . map (intercalate "  ") . group numLineWords
     . map (intercalate " ")  . group numWordBytes
+    . highlight
     . map (paddedShowHex byteWidth)
     . B.unpack
 
-  mkAsciiDump = group numLineBytes . cleanString . B8.unpack
+  highlight :: [String] -> [String]
+  highlight = zipWith (transformByte cfg) [ startByte cfg .. ]
+
+  mkAsciiDump = map concat
+              . group numLineBytes
+              . highlight
+              . cleanString . B8.unpack
 
   cleanString = map go
    where
-    go x | isWorthPrinting x = x
-         | otherwise         = replacementChar
+    go x | isWorthPrinting x = [x]
+         | otherwise         = [replacementChar]
 
-  mkLineNumbers bs = [paddedShowHex addressWidth (x * numLineBytes) ++ ":"
+  mkLineNumbers bs = [paddedShowHex addressWidth
+                              (startByte cfg + x * numLineBytes) ++ ":"
                      | x <- [0 .. (B.length bs - 1) `div` numLineBytes] ]
 
   padLast w [x]         = [x ++ replicate (w - length x) ' ']
