@@ -62,10 +62,16 @@ prettyHexCfg cfg bs = unlines (header : body)
   body = map (intercalate "   ")
        $ transpose [mkLineNumbers bs, mkHexDisplay bs, mkAsciiDump bs]
 
+  (startAddr',missingBytes) = startByte cfg `divMod` numLineBytes
+  startAddr = numLineBytes * startAddr'
+
+  blankByte = replicate byteWidth ' '
+
   mkHexDisplay
     = padLast hexDisplayWidth
     . map (intercalate "  ") . group numLineWords
     . map (intercalate " ")  . group numWordBytes
+    . (replicate missingBytes blankByte ++)
     . highlight
     . map (paddedShowHex byteWidth)
     . B.unpack
@@ -75,6 +81,7 @@ prettyHexCfg cfg bs = unlines (header : body)
 
   mkAsciiDump = map concat
               . group numLineBytes
+              . (replicate missingBytes [' '] ++)
               . highlight
               . cleanString . B8.unpack
 
@@ -84,8 +91,9 @@ prettyHexCfg cfg bs = unlines (header : body)
          | otherwise         = [replacementChar]
 
   mkLineNumbers bs = [paddedShowHex addressWidth
-                              (startByte cfg + x * numLineBytes) ++ ":"
-                     | x <- [0 .. (B.length bs - 1) `div` numLineBytes] ]
+                                  (startAddr + x * numLineBytes) ++ ":"
+                     | x <- [0 .. (missingBytes + B.length bs - 1)
+                                                      `div` numLineBytes] ]
 
   padLast w [x]         = [x ++ replicate (w - length x) ' ']
   padLast w (x:xs)      = x : padLast w xs
